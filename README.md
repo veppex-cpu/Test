@@ -27,6 +27,55 @@ The Playwright project is named `nightly` and points directly at the bundled Nig
 
 If the Playwright browser cache changes, update `nightlyExecutablePath` in `playwright.config.js`.
 
+## Assignment Coverage
+
+Phase 1: Existing Ticket Audit
+
+- Covered in `BUGS.md` under `Ticket Audit: PR-4092`.
+- The audit records what was tested, observed checkout behavior, missing ticket
+  details, why the ticket is not implementation-ready, and a suggested rewrite.
+- The automated checkout tests preserve the key evidence: spaced card input is
+  normalized and incomplete checkout remains blocked.
+
+Phase 2, Scenario 1: Search Funnel & Processing Interface Verification
+
+- Covered by search initiation, empty/whitespace boundaries, FCRA disclosure,
+  age verification, notice, service-agreement flow, keyboard submission, and
+  back-navigation checks.
+- UI/design coverage includes accessible names, image alt checks, title checks,
+  dialog focusability, and horizontal-overflow checks.
+- Wait strategy uses Playwright web-first assertions, URL assertions, and
+  `domcontentloaded` navigation. There are no fixed sleeps in the test suite.
+- The public flow did not expose a stable loading/progress component to assert
+  directly, so the suite validates the state transitions that follow processing
+  instead of binding to a transient implementation detail.
+
+Phase 2, Scenario 2: Data Layout, Sorting & Pagination Stability
+
+- The requested results matrix, sorting dropdowns, and pagination controls were
+  not visible in the observed public funnel. This is documented in `BUGS.md`.
+- The closest visible matrix was package selection, which is covered through
+  tier selection, summary updates, plan-route mapping, desktop layout checks, and
+  mobile smoke coverage.
+- If a results route or seeded test account becomes available, this should become
+  a separate results-layout spec covering sorting by Age, Location, and History,
+  pagination, no duplicated rows, and no dropped cells after DOM reordering.
+
+Phase 2, Scenario 3: Checkout Gate Field Validation
+
+- Covered by plan-tier selection, invoice/summary assertions, service-agreement
+  gating, checkout field errors, terms enforcement, mobile checkout layout, and
+  reload behavior after partial form entry.
+- Zip-code validation is treated as a gray area because checkout exposes a hidden
+  `Billing Address` search field rather than a visible standalone zip/postal
+  input. The suite asserts the visible billing-address error and documents the
+  assumption in `BUGS.md`.
+- Expired-date validation is also constrained by the UI because past years are
+  not selectable. The suite asserts that expired years are unavailable instead
+  of forcing an impossible expired-date submission.
+- Payment safety is enforced by never satisfying all valid checkout requirements
+  at once and never submitting a complete payment-ready form.
+
 ## Test Strategy
 
 The suite is built as a risk-based end-to-end assessment rather than a broad
@@ -80,6 +129,9 @@ Search and disclosure:
 - Verifies the disclosure includes expected risk language and public-record
   count messaging.
 - Confirms browser back navigation returns to a usable search form.
+- Uses Playwright state-based waits for the post-search disclosure and route
+  transitions instead of fixed timers. The observed public flow did not expose a
+  stable loading spinner/progress element worth asserting directly.
 
 Consent and legal gates:
 

@@ -4,9 +4,41 @@
 
 Ticket claim: spaces in the credit-card field let the user proceed and should be fixed by mask regex or a blocking error.
 
-Observed behavior: entering `4111 1111 1111 1111` is normalized to `4111-1111-1111-1111` on blur. With required fields missing, the form remains on `/feature/checkout/plan3` and displays blocking validation for first name, last name, CVV, billing address, and terms.
+### Sanity-check result
 
-Audit conclusion: the ticket is underspecified and likely inaccurate as written. It does not define browser, plan, exact card input, whether the terms checkbox was checked, whether the submit reached payment authorization, or expected normalization rules. Based on exploration, spaces alone are not enough evidence that checkout proceeds.
+The ticket is not ready to implement as written. It points at a plausible risk area, but it does not provide enough detail to prove the bug or choose the right fix. Based on the current public checkout behavior, the claim that spaces alone let the user proceed appears inaccurate or at least unproven.
+
+### Exploration performed
+
+- Reached checkout through the observed public funnel using the single-report plan.
+- Entered `4111 1111 1111 1111` in the credit-card field.
+- Blurred the card field to trigger the UI mask.
+- Submitted with required fields intentionally incomplete to avoid any purchase attempt.
+- Checked whether the page advanced, whether the card field normalized, and which validation messages appeared.
+- Also checked malformed field behavior using short card, short CVV, and invalid email values.
+
+### Observed behavior
+
+Entering `4111 1111 1111 1111` is normalized to `4111-1111-1111-1111` on blur. With required fields missing, the form remains on `/feature/checkout/plan3` and displays blocking validation for first name, last name, CVV, billing address, and terms. With deliberately malformed values, checkout also displays `Invalid credit card`, `Invalid CVV`, and `Invalid email`.
+
+### Missing ticket details
+
+- Browser, device, viewport, and environment where the issue was seen.
+- Exact plan/tier selected before checkout.
+- Exact card input used and whether spaces, tabs, pasted text, or non-breaking spaces were involved.
+- Whether the test included valid first name, last name, email, CVV, billing address, and accepted billing terms.
+- Whether "lets them proceed" means leaving the checkout page, opening a 3DS/payment challenge, creating an authorization attempt, or only passing client-side formatting.
+- Expected formatting rule: strip spaces, convert spaces to hyphens, preserve grouped display, or reject spaces entirely.
+- Whether the bug is client-side validation, input masking, server-side validation, or payment-provider behavior.
+- Acceptance criteria for the intended fix and regression test.
+
+### Recommended ticket rewrite
+
+Reproduce on a named browser and plan with explicit steps, expected result, and actual result. For example: "On Firefox Nightly, single-report checkout, paste `4111 1111 1111 1111` into Card Number, fill all other required fields with safe test data except do not use a real purchasable card, click Confirm Payment. Expected: card input is either normalized consistently or a blocking validation message appears before payment authorization. Actual: page proceeds to [specific next state]."
+
+### Audit conclusion
+
+PR-4092 is underspecified and likely inaccurate as written. Spaces in the card field are not enough evidence that checkout proceeds. The current behavior should be captured as a regression test around normalization and blocking validation, while the ticket should be clarified before any mask-regex implementation work.
 
 ## Findings
 
