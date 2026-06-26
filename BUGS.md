@@ -46,9 +46,9 @@ PR-4092 is underspecified and likely inaccurate as written. Spaces in the card f
 
 The brief calls out missing zip-code validation, but the checkout UI did not expose a visible zip/postal-code input. It exposes a hidden `Billing Address` search field and reports `Billing address can not be blank` after submit. This should be clarified before implementing zip-specific assertions.
 
-### Expired card dates cannot be selected
+### Expired card date coverage is split between hidden years and selectable past months
 
-The expiration-year dropdown begins at `26` and does not offer past years. This prevents direct expired-year boundary testing through the UI. If expired-date validation is required, the app may need a test hook, API-level test, or explicit past-year option in a non-production environment.
+The expiration-year dropdown begins at `26` and does not offer past years. That prevents direct past-year boundary testing through the UI. However, prior months in the current year remain selectable, such as `01/26` when the current month is later in 2026. Submitting with that current-year past month displays `Invalid Year`, so the automated suite covers that expired-month boundary while documenting that true past-year validation would require a test hook, API-level test, or explicit past-year option in a non-production environment.
 
 ### Checkout reload clears partial form data
 

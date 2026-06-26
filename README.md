@@ -70,9 +70,10 @@ Phase 2, Scenario 3: Checkout Gate Field Validation
   `Billing Address` search field rather than a visible standalone zip/postal
   input. The suite asserts the visible billing-address error and documents the
   assumption in `BUGS.md`.
-- Expired-date validation is also constrained by the UI because past years are
-  not selectable. The suite asserts that expired years are unavailable instead
-  of forcing an impossible expired-date submission.
+- Expired-date validation is partly constrained by the UI because past years are
+  not selectable. The suite asserts that past years are unavailable and verifies
+  that selecting a past month in the current year, such as January 2026 when the
+  current month is later in 2026, displays the checkout expiration error.
 - Payment safety is enforced by never satisfying all valid checkout requirements
   at once and never submitting a complete payment-ready form.
 
@@ -155,6 +156,7 @@ Checkout validation:
 - Audits the reported credit-card spacing issue.
 - Confirms spaced card input is normalized on blur.
 - Verifies malformed card, malformed CVV, and malformed email errors.
+- Verifies current-year expired-month validation.
 - Verifies required-field validation blocks progress.
 - Verifies terms enforcement blocks progress.
 - Treats missing visible zip-code input as a documented product gap.
@@ -207,8 +209,8 @@ test hooks:
   and zero-result handling. This was not automated because the observed public
   flow did not expose a separate sortable/paginated results matrix.
 - **Checkout field matrix:** non-numeric CVV, unsupported card brand, address
-  autocomplete failure, and zip/postal validation once a visible zip field or
-  test hook exists.
+  autocomplete failure, past-year expiration through a test hook, and zip/postal
+  validation once a visible zip field or test hook exists.
 - **Direct-route protection:** gated routes such as package, service agreement,
   and checkout are currently reachable directly and are documented in `BUGS.md`.
   Once fixed, add regression tests proving those routes redirect or block access
@@ -293,6 +295,6 @@ Useful next steps if this were expanded beyond the take-home scope:
 
 The assessment asks for zip-code validation. The checkout page exposes a hidden `Billing Address` search field and reports `Billing address can not be blank`, but I did not find a visible standalone zip/postal-code input. I treated billing-address validation as the closest available boundary and documented this in `BUGS.md`.
 
-The assessment also asks for expired-date validation. The year dropdown starts at the current year (`26`) and does not expose past years, so the automated check verifies that expired years are unavailable rather than forcing an impossible expired date through the UI.
+The assessment also asks for expired-date validation. The year dropdown starts at the current year (`26`) and does not expose past years, but prior months in the current year remain selectable. The suite now verifies both sides of that boundary: past years are unavailable, and a current-year past month returns the checkout expiration error.
 
 The current public funnel did not expose a separate results matrix with sorting and pagination before checkout. I covered the observed package-selection matrix and noted the missing sorting/pagination surface in `BUGS.md`.

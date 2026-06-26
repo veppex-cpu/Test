@@ -367,6 +367,31 @@ test.describe('public records funnel', () => {
     await expect(page).toHaveURL(/\/feature\/checkout\/plan3/);
   });
 
+  test('flags an expired month when the current expiration year is selected', async ({ page }) => {
+    const now = new Date();
+    const currentMonth = now.getMonth() + 1;
+    test.skip(currentMonth === 1, 'No prior month exists in January for this current-year boundary check.');
+
+    const currentYear = String(now.getFullYear()).slice(-2);
+    const expiredMonth = String(currentMonth - 1).padStart(2, '0');
+
+    await reachCheckout(page, 'singleReport');
+
+    // Past years are hidden, but past months in the current year remain selectable.
+    await page.locator('#month').selectOption(expiredMonth);
+    await page.locator('#year').selectOption(currentYear);
+    await page.locator('#firstName').fill('Ada');
+    await page.locator('#lastName').fill('Lovelace');
+    await page.locator('#email').fill('not-an-email');
+    await page.locator('#cc').fill('4111');
+    await page.locator('#cvv').fill('1');
+
+    await page.getByRole('button', { name: /confirm payment/i }).click();
+
+    await expect(page.locator('body')).toContainText(/invalid year/i);
+    await expect(page).toHaveURL(/\/feature\/checkout\/plan3/);
+  });
+
   test('validates checkout fields without submitting a purchase', async ({ page }) => {
     await reachCheckout(page, 'singleReport');
     await expectBasicPageAccessibility(page);
@@ -376,7 +401,7 @@ test.describe('public records funnel', () => {
     await page.locator('#cc').blur();
     await expect(page.locator('#cc')).toHaveValue('4111-1111-1111-1111');
 
-    // Past years are not selectable, so direct expired-card submission is not possible.
+    // Past years are not selectable; current-year past months are covered separately.
     const selectableYears = await page.locator('#year option').evaluateAll((options) =>
       options.map((option) => Number(option.value))
     );
