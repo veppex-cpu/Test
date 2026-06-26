@@ -33,46 +33,134 @@ The suite is built as a risk-based end-to-end assessment rather than a broad
 snapshot of every visible page. The highest-risk behavior is the monetized user
 journey: a visitor searches for a person, accepts legally sensitive disclosure
 gates, selects a package, accepts the service agreement, and reaches checkout.
-Those steps are tested together because regressions in the handoff between pages
-are more important than isolated rendering checks for this assessment.
+Those steps are tested together because regressions in page handoffs are more
+important than isolated rendering checks for this assessment.
+
+The strategy is split into three layers:
+
+- **Critical path automation:** the public user funnel from search through safe
+  checkout validation.
+- **Safety and compliance gates:** FCRA language, service-agreement handoff,
+  terms enforcement, and payment-safety boundaries.
+- **Experience smoke coverage:** accessibility, keyboard navigation, responsive
+  layout, and browser-specific risk areas.
 
 Selectors intentionally avoid generated CSS classes. Tests prefer user-facing
 roles, visible text, stable IDs, input labels, and route assertions. This keeps
 the suite closer to user behavior and less sensitive to presentation-only
 changes.
 
-Covered paths:
+### Automated Coverage
+
+The current suite covers:
 
 - Broad name search for `John Smith`
-- Initial FCRA/disclosure dialog
+- Initial FCRA/search disclosure dialog
 - Age verification and notice gates
 - Package tier selection
 - Service agreement gate
 - Checkout validation without completing payment
-- Accessibility smoke coverage across the same high-value funnel pages
+- Accessibility smoke coverage across high-value funnel pages
+- Keyboard-only search submission
+- Dialog focus and native dialog-state checks
+- Desktop horizontal-overflow checks on key pages
+- Mobile viewport smoke coverage through package selection
 
-Validation depth:
+### Validation Depth
 
-- The accessibility checks verify title metadata, visible control names, image
-  alt coverage, keyboard access to search, and keyboard/focus behavior for
-  disclosure dialogs. Structural issues found during this pass are documented in
-  `BUGS.md` rather than making every funnel test fail.
-- The search test verifies that the first disclosure gate appears, contains the
-  expected FCRA language, can be continued, and survives browser back/forward
-  style navigation.
-- The package test verifies that each visible tier can be selected and that the
-  on-page summary changes with the selected tier before continuing to checkout.
-- The checkout test verifies the disputed credit-card spacing behavior, required
-  field validation, unavailable expired years, terms enforcement, and reload
-  behavior for partially entered payment data.
-- The suite includes a lightweight horizontal-overflow assertion on major funnel
-  pages to catch obvious responsive layout regressions while still keeping the
-  focus on functional QA.
+Search and disclosure:
+
+- Confirms the landing page is usable before interacting with it.
+- Starts a broad identity search and verifies the FCRA disclosure appears.
+- Verifies the disclosure includes expected risk language and public-record
+  count messaging.
+- Confirms browser back navigation returns to a usable search form.
+
+Consent and legal gates:
+
+- Verifies age-verification content and terms-of-service messaging.
+- Opens the nested FCRA disclaimer and confirms the user can continue.
+- Verifies the notice gate blocks progress until the user agrees.
+- Verifies the service-agreement gate appears before checkout.
+
+Package selection:
+
+- Confirms each package radio option can be selected.
+- Confirms each selection changes the visible package summary.
+- Continues with the single-report plan to keep checkout price assertions stable.
+- Verifies checkout summary text for the selected plan.
+
+Checkout validation:
+
+- Audits the reported credit-card spacing issue.
+- Confirms spaced card input is normalized on blur.
+- Verifies required-field validation blocks progress.
+- Verifies terms enforcement blocks progress.
+- Treats missing visible zip-code input as a documented product gap.
+- Verifies expired years are unavailable rather than forcing an impossible
+  expired-card submission through the UI.
+- Confirms partial checkout data is cleared after reload.
+
+Accessibility and keyboard behavior:
+
+- Verifies visible controls have accessible names.
+- Verifies visible images expose `alt` attributes.
+- Verifies pages under test have document titles.
+- Verifies keyboard-only users can reach the search field and submit search.
+- Verifies disclosure dialog content can receive focus.
+- Documents known structural accessibility issues in `BUGS.md` rather than
+  hiding all functional signal behind known product failures.
+
+Responsive and browser behavior:
+
+- Checks for horizontal overflow on high-value pages.
+- Exercises the package-selection path at a mobile viewport.
+- Keeps the browser matrix intentionally narrow in this local setup because the
+  configured project targets Firefox Nightly only.
+
+### Quality Gates
 
 The suite uses Playwright's web-first assertions and URL/content waits instead of
-fixed timers. Payment safety is enforced by never entering a real usable card,
-never checking all checkout requirements, and never submitting a fully valid
-payment form.
+fixed timers. That keeps waits tied to real page state and reduces timing noise.
+
+Payment safety is a hard boundary:
+
+- The tests never enter a real card.
+- The tests never satisfy all checkout requirements at once.
+- The tests never submit a fully valid payment form.
+- The checkout test intentionally validates blocking errors instead of payment
+  authorization behavior.
+
+Known product gaps are documented separately in `BUGS.md`. When an issue is
+already present in production, the suite either documents it as an audit finding
+or gates only the surrounding behavior that should remain stable.
+
+### Recommended Future Tests
+
+These are useful next additions if the scope grows or the application exposes
+test hooks:
+
+- **Search boundaries:** empty search, single-name search, names with hyphens or
+  apostrophes, unusually long names, and city/state filters if available.
+- **Results experience:** sorting, pagination, filtering, result-card content,
+  and zero-result handling. This was not automated because the observed public
+  flow did not expose a separate sortable/paginated results matrix.
+- **Checkout field matrix:** invalid email formats, short CVV, non-numeric CVV,
+  short card number, unsupported card brand, address autocomplete failure, and
+  zip/postal validation once a visible zip field or test hook exists.
+- **Direct-route protection:** verify gated routes such as package, service
+  agreement, and checkout cannot be reached without completing prior consent
+  steps.
+- **Session behavior:** reload, new tab, back/forward navigation, and expired
+  session behavior between package selection and checkout.
+- **Network resilience:** slow search response, blocked analytics scripts,
+  failed address-autocomplete provider, and payment-provider timeout handling.
+- **Accessibility depth:** add `@axe-core/playwright`, focus-trap checks for
+  dialogs, color-contrast review, screen-reader name/description checks, and
+  reduced-motion behavior if the UI animates state transitions.
+- **Cross-browser matrix:** run Chromium, Firefox, and WebKit in CI, with special
+  attention to native `<dialog>`, masked credit-card fields, select controls,
+  autofill, and mobile viewport behavior.
 
 ## Test Architecture
 
@@ -93,6 +181,7 @@ flowchart TD
   Tests --> Tiers[Package tier sync]
   Tests --> Validation[Checkout validation]
   Tests --> A11y[Accessibility smoke checks]
+  Tests --> Responsive[Mobile viewport smoke]
 
   Config --> BaseURL[https://www.publicrecordsdata.us]
   Tests --> Report[HTML report]

@@ -7,6 +7,7 @@
  *
  * Included coverage:
  * - keyboard and baseline accessibility smoke checks on key funnel pages
+ * - responsive/mobile smoke coverage for the package-selection path
  * - FCRA/disclosure dialog content and navigation
  * - package tier selection and checkout summary consistency
  * - checkout validation without entering a complete payment-ready form
@@ -118,7 +119,7 @@ async function tabUntilFocused(page, selector, maxTabs = 12) {
 
 // Starts from the public landing page and verifies the first FCRA disclosure gate.
 async function startSearch(page) {
-  await page.goto('/');
+  await page.goto('/', { waitUntil: 'domcontentloaded' });
   await expect(page.getByPlaceholder('Full Name')).toBeVisible();
   await expect(page).toHaveTitle(/Public Records Search/);
 
@@ -180,7 +181,7 @@ async function reachCheckout(page, plan = 'singleReport') {
 
 test.describe('public records funnel', () => {
   test('supports baseline accessibility and keyboard search on the landing page', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
     await expectBasicPageAccessibility(page);
 
     // Proves a keyboard-only user can reach the search field and submit search.
@@ -215,7 +216,7 @@ test.describe('public records funnel', () => {
   });
 
   test('keeps disclosure dialog content focusable and semantically identifiable', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
     await page.getByPlaceholder('Full Name').fill(SEARCH_NAME);
     await page.locator('#people-search-btn').click();
 
@@ -239,6 +240,20 @@ test.describe('public records funnel', () => {
     await expect(disclaimerDialog).toHaveJSProperty('open', true);
     await disclaimerDialog.getByRole('link', { name: /i agree/i }).focus();
     await expect(disclaimerDialog.getByRole('link', { name: /i agree/i })).toBeFocused();
+  });
+
+  test('keeps the core funnel usable on a mobile viewport through package selection', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+
+    // Mobile coverage stays shallow but follows real gates where layout bugs often appear.
+    await reachPackageSelection(page);
+    await expectNoHorizontalOverflow(page);
+    await expectBasicPageAccessibility(page);
+
+    await expect(page.locator('#oneYear')).toBeChecked();
+    await page.locator('#singleReport').check();
+    await expect(page.locator('#singleReport')).toBeChecked();
+    await expect(page.locator('body')).toContainText(/one public record report/i);
   });
 
   test('keeps package tier selection and checkout summary in sync', async ({ page }) => {
