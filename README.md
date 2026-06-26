@@ -1,7 +1,6 @@
 # Public Records Platform QA Assessment
 
-This repository contains a Playwright JavaScript suite for the PublicRecordsData.us take-home assessment. The suite uses Firefox Nightly only because the local macOS version does not reliably support the bundled Chromium/WebKit browsers.
-
+This repository contains a Playwright JavaScript suite for the PublicRecordsData.us. The suite uses Firefox Nightly for demo purposes.
 ## Setup
 
 ```sh
