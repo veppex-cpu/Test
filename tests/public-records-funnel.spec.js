@@ -10,6 +10,7 @@
  * - responsive/mobile smoke coverage for the package-selection path
  * - FCRA/disclosure dialog content and navigation
  * - package tier selection and checkout summary consistency
+ * - search input boundary checks and plan-to-route handoff checks
  * - checkout validation without entering a complete payment-ready form
  * - documented product gaps such as expired-date and zip-code gray areas
  *
@@ -180,6 +181,22 @@ async function reachCheckout(page, plan = 'singleReport') {
 }
 
 test.describe('public records funnel', () => {
+  test('blocks empty and whitespace-only searches at the landing page', async ({ page }) => {
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
+    await expect(page.getByPlaceholder('Full Name')).toBeVisible();
+
+    // Empty search should not open the disclosure dialog or leave the landing page.
+    await page.locator('#people-search-btn').click();
+    await expect(page.locator('#people-search-dialog')).not.toBeVisible();
+    await expect(page).toHaveURL(/\/$/);
+
+    // Whitespace-only input should behave like empty input.
+    await page.getByPlaceholder('Full Name').fill('   ');
+    await page.locator('#people-search-btn').click();
+    await expect(page.locator('#people-search-dialog')).not.toBeVisible();
+    await expect(page).toHaveURL(/\/$/);
+  });
+
   test('supports baseline accessibility and keyboard search on the landing page', async ({ page }) => {
     await page.goto('/', { waitUntil: 'domcontentloaded' });
     await expectBasicPageAccessibility(page);
@@ -242,6 +259,21 @@ test.describe('public records funnel', () => {
     await expect(disclaimerDialog.getByRole('link', { name: /i agree/i })).toBeFocused();
   });
 
+  test('requires service agreement acceptance before checkout', async ({ page }) => {
+    await reachPackageSelection(page);
+
+    await page.locator('#singleReport').check();
+    await page.getByRole('button', { name: /continue/i }).click();
+
+    await expect(page).toHaveURL(/\/feature\/service-agreement\/plan3/);
+    await expect(page.getByText(/service agreement/i)).toBeVisible();
+    await expect(page.getByRole('button', { name: /confirm payment/i })).not.toBeVisible();
+
+    await page.getByRole('link', { name: /i agree/i }).click();
+    await expect(page).toHaveURL(/\/feature\/checkout\/plan3/);
+    await expect(page.getByRole('button', { name: /confirm payment/i })).toBeVisible();
+  });
+
   test('keeps the core funnel usable on a mobile viewport through package selection', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
 
@@ -254,6 +286,16 @@ test.describe('public records funnel', () => {
     await page.locator('#singleReport').check();
     await expect(page.locator('#singleReport')).toBeChecked();
     await expect(page.locator('body')).toContainText(/one public record report/i);
+  });
+
+  test('keeps checkout reachable and readable on a mobile viewport', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+
+    await reachCheckout(page, 'singleReport');
+    await expectNoHorizontalOverflow(page);
+    await expectBasicPageAccessibility(page);
+    await expect(page.getByRole('button', { name: /confirm payment/i })).toBeVisible();
+    await expect(page.locator('body')).toContainText(/payment due today: \$1/i);
   });
 
   test('keeps package tier selection and checkout summary in sync', async ({ page }) => {
@@ -283,6 +325,46 @@ test.describe('public records funnel', () => {
     await expect(page).toHaveURL(/\/feature\/checkout\/plan3/);
     await expect(page.locator('body')).toContainText(/\$1 one-time payment/i);
     await expect(page.locator('body')).toContainText(/payment due today: \$1/i);
+  });
+
+  test('maps package selections to expected service-agreement plan routes', async ({ page }) => {
+    await reachPackageSelection(page);
+
+    const plans = [
+      { id: 'oneYear', route: /\/feature\/service-agreement\/plan1/ },
+      { id: 'threeMonth', route: /\/feature\/service-agreement\/plan2/ },
+      { id: 'singleReport', route: /\/feature\/service-agreement\/plan3/ },
+      { id: 'fiveReports', route: /\/feature\/service-agreement\/plan4/ }
+    ];
+
+    for (const plan of plans) {
+      await page.locator(`#${plan.id}`).check();
+      await page.getByRole('button', { name: /continue/i }).click();
+      await expect(page).toHaveURL(plan.route);
+      await expect(page.getByText(/service agreement/i)).toBeVisible();
+
+      await page.goBack();
+      await expect(page.getByText(/choose your package/i)).toBeVisible();
+    }
+  });
+
+  test('shows field-specific checkout errors for malformed payment details', async ({ page }) => {
+    await reachCheckout(page, 'singleReport');
+
+    // These values are intentionally malformed and still leave address/terms incomplete.
+    await page.locator('#firstName').fill('Ada');
+    await page.locator('#lastName').fill('Lovelace');
+    await page.locator('#email').fill('not-an-email');
+    await page.locator('#cc').fill('4111');
+    await page.locator('#cvv').fill('1');
+
+    await page.getByRole('button', { name: /confirm payment/i }).click();
+
+    await expect(page.locator('body')).toContainText(/invalid credit card/i);
+    await expect(page.locator('body')).toContainText(/invalid cvv/i);
+    await expect(page.locator('body')).toContainText(/invalid email/i);
+    await expect(page.locator('body')).toContainText(/you must agree to the terms/i);
+    await expect(page).toHaveURL(/\/feature\/checkout\/plan3/);
   });
 
   test('validates checkout fields without submitting a purchase', async ({ page }) => {

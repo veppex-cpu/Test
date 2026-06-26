@@ -55,22 +55,27 @@ changes.
 The current suite covers:
 
 - Broad name search for `John Smith`
+- Empty and whitespace-only search boundary checks
 - Initial FCRA/search disclosure dialog
 - Age verification and notice gates
 - Package tier selection
+- Package-to-service-agreement route mapping
 - Service agreement gate
 - Checkout validation without completing payment
+- Field-specific checkout validation for malformed card, CVV, and email input
 - Accessibility smoke coverage across high-value funnel pages
 - Keyboard-only search submission
 - Dialog focus and native dialog-state checks
 - Desktop horizontal-overflow checks on key pages
 - Mobile viewport smoke coverage through package selection
+- Mobile viewport smoke coverage at checkout
 
 ### Validation Depth
 
 Search and disclosure:
 
 - Confirms the landing page is usable before interacting with it.
+- Verifies empty and whitespace-only searches do not open the disclosure dialog.
 - Starts a broad identity search and verifies the FCRA disclosure appears.
 - Verifies the disclosure includes expected risk language and public-record
   count messaging.
@@ -82,11 +87,14 @@ Consent and legal gates:
 - Opens the nested FCRA disclaimer and confirms the user can continue.
 - Verifies the notice gate blocks progress until the user agrees.
 - Verifies the service-agreement gate appears before checkout.
+- Verifies checkout is not available from the service-agreement page until the
+  agreement action is taken.
 
 Package selection:
 
 - Confirms each package radio option can be selected.
 - Confirms each selection changes the visible package summary.
+- Confirms each package maps to its expected service-agreement plan route.
 - Continues with the single-report plan to keep checkout price assertions stable.
 - Verifies checkout summary text for the selected plan.
 
@@ -94,6 +102,7 @@ Checkout validation:
 
 - Audits the reported credit-card spacing issue.
 - Confirms spaced card input is normalized on blur.
+- Verifies malformed card, malformed CVV, and malformed email errors.
 - Verifies required-field validation blocks progress.
 - Verifies terms enforcement blocks progress.
 - Treats missing visible zip-code input as a documented product gap.
@@ -114,7 +123,7 @@ Accessibility and keyboard behavior:
 Responsive and browser behavior:
 
 - Checks for horizontal overflow on high-value pages.
-- Exercises the package-selection path at a mobile viewport.
+- Exercises the package-selection and checkout paths at a mobile viewport.
 - Keeps the browser matrix intentionally narrow in this local setup because the
   configured project targets Firefox Nightly only.
 
@@ -140,17 +149,18 @@ or gates only the surrounding behavior that should remain stable.
 These are useful next additions if the scope grows or the application exposes
 test hooks:
 
-- **Search boundaries:** empty search, single-name search, names with hyphens or
-  apostrophes, unusually long names, and city/state filters if available.
+- **Search boundaries:** single-name search, names with hyphens or apostrophes,
+  unusually long names, and city/state filters if available.
 - **Results experience:** sorting, pagination, filtering, result-card content,
   and zero-result handling. This was not automated because the observed public
   flow did not expose a separate sortable/paginated results matrix.
-- **Checkout field matrix:** invalid email formats, short CVV, non-numeric CVV,
-  short card number, unsupported card brand, address autocomplete failure, and
-  zip/postal validation once a visible zip field or test hook exists.
-- **Direct-route protection:** verify gated routes such as package, service
-  agreement, and checkout cannot be reached without completing prior consent
-  steps.
+- **Checkout field matrix:** non-numeric CVV, unsupported card brand, address
+  autocomplete failure, and zip/postal validation once a visible zip field or
+  test hook exists.
+- **Direct-route protection:** gated routes such as package, service agreement,
+  and checkout are currently reachable directly and are documented in `BUGS.md`.
+  Once fixed, add regression tests proving those routes redirect or block access
+  until prior consent steps are complete.
 - **Session behavior:** reload, new tab, back/forward navigation, and expired
   session behavior between package selection and checkout.
 - **Network resilience:** slow search response, blocked analytics scripts,

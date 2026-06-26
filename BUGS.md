@@ -26,6 +26,10 @@ Partial checkout data entered into first name, last name, email, and card number
 
 The observed broad search flow showed a search disclosure, consent gates, package selection, service agreement, and checkout. I did not encounter a separate results list with Age/Location/History sorting or pagination controls before checkout. This may indicate an A/B variant, geo-specific flow, or a missing route in the current public experience.
 
+### Gated funnel routes can be reached directly
+
+In a fresh browser context, `/feature/package`, `/feature/service-agreement/plan3`, and `/feature/checkout/plan3` were reachable directly without first completing search, disclosure, age-verification, notice, or service-agreement steps. Because these pages sit behind legal and payment gates in the normal funnel, direct access should be clarified or blocked before adding a hard regression test for route protection.
+
 ### Baseline accessibility structure gaps
 
 The public funnel is missing root document language metadata (`<html lang>`). Some funnel pages also lack a visible heading or landmark structure detectable through semantic elements such as `main`, `header`, `nav`, or `footer`. The automated suite keeps keyboard operation, visible control names, image alt text, and document titles as hard assertions, while these broader structural issues are documented here as product findings.
