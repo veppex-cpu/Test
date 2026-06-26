@@ -20,6 +20,29 @@
 const { test, expect } = require('@playwright/test');
 
 const SEARCH_NAME = 'John Smith';
+const SINGLE_REPORT_PLAN = 'singleReport';
+const PLANS = [
+  {
+    id: 'oneYear',
+    summary: /360 public record reports/i,
+    serviceAgreementRoute: /\/feature\/service-agreement\/plan1/
+  },
+  {
+    id: 'threeMonth',
+    summary: /90 public record reports/i,
+    serviceAgreementRoute: /\/feature\/service-agreement\/plan2/
+  },
+  {
+    id: SINGLE_REPORT_PLAN,
+    summary: /one public record report/i,
+    serviceAgreementRoute: /\/feature\/service-agreement\/plan3/
+  },
+  {
+    id: 'fiveReports',
+    summary: /10 public record reports/i,
+    serviceAgreementRoute: /\/feature\/service-agreement\/plan4/
+  }
+];
 
 // Dependency-free accessibility smoke coverage. Broader structural findings
 // are documented in BUGS.md so known product issues do not mask funnel regressions.
@@ -118,20 +141,34 @@ async function tabUntilFocused(page, selector, maxTabs = 12) {
   await expectFocusedElement(page, selector);
 }
 
-// Starts from the public landing page and verifies the first FCRA disclosure gate.
-async function startSearch(page) {
+async function openLandingPage(page) {
   await page.goto('/', { waitUntil: 'domcontentloaded' });
   await expect(page.getByPlaceholder('Full Name')).toBeVisible();
-  await expect(page).toHaveTitle(/Public Records Search/);
+  await expect(page.locator('#people-search-btn')).toBeVisible();
+  await expect(page.locator('#people-search-btn')).toBeEnabled();
+}
 
-  await page.getByPlaceholder('Full Name').fill(SEARCH_NAME);
+async function submitSearch(page, name = SEARCH_NAME) {
+  await page.getByPlaceholder('Full Name').fill(name);
   await page.locator('#people-search-btn').click();
+}
 
+async function expectSearchDisclosure(page) {
   const disclosureDialog = page.locator('#people-search-dialog');
   await expect(disclosureDialog).toBeVisible();
   await expect(disclosureDialog).toContainText(/200 public records/i);
   await expect(disclosureDialog).toContainText(/FCRA/i);
+  return disclosureDialog;
+}
 
+// Starts from the public landing page and verifies the first FCRA disclosure gate.
+async function startSearch(page) {
+  await openLandingPage(page);
+  await expect(page).toHaveTitle(/Public Records Search/);
+
+  await submitSearch(page);
+
+  const disclosureDialog = await expectSearchDisclosure(page);
   await disclosureDialog.getByRole('link', { name: /continue/i }).click();
   await expect(page).toHaveURL(/\/feature\/age-verification/);
 }
@@ -180,10 +217,30 @@ async function reachCheckout(page, plan = 'singleReport') {
   await expect(page.getByRole('button', { name: /confirm payment/i })).toBeVisible();
 }
 
+async function submitCheckout(page) {
+  await page.getByRole('button', { name: /confirm payment/i }).click();
+}
+
+async function fillMalformedCheckoutDetails(page, overrides = {}) {
+  const values = {
+    firstName: 'Ada',
+    lastName: 'Lovelace',
+    email: 'not-an-email',
+    cc: '4111',
+    cvv: '1',
+    ...overrides
+  };
+
+  await page.locator('#firstName').fill(values.firstName);
+  await page.locator('#lastName').fill(values.lastName);
+  await page.locator('#email').fill(values.email);
+  await page.locator('#cc').fill(values.cc);
+  await page.locator('#cvv').fill(values.cvv);
+}
+
 test.describe('public records funnel', () => {
   test('blocks empty and whitespace-only searches at the landing page', async ({ page }) => {
-    await page.goto('/', { waitUntil: 'domcontentloaded' });
-    await expect(page.getByPlaceholder('Full Name')).toBeVisible();
+    await openLandingPage(page);
 
     // Empty search should not open the disclosure dialog or leave the landing page.
     await page.locator('#people-search-btn').click();
@@ -198,7 +255,7 @@ test.describe('public records funnel', () => {
   });
 
   test('supports baseline accessibility and keyboard search on the landing page', async ({ page }) => {
-    await page.goto('/', { waitUntil: 'domcontentloaded' });
+    await openLandingPage(page);
     await expectBasicPageAccessibility(page);
 
     // Proves a keyboard-only user can reach the search field and submit search.
@@ -208,10 +265,7 @@ test.describe('public records funnel', () => {
     await tabUntilFocused(page, '#people-search-btn');
     await page.keyboard.press('Enter');
 
-    const disclosureDialog = page.locator('#people-search-dialog');
-    await expect(disclosureDialog).toBeVisible();
-    await expect(disclosureDialog).toContainText(/FCRA/i);
-    await expect(disclosureDialog).toContainText(/200 public records/i);
+    await expectSearchDisclosure(page);
   });
 
   test('starts a broad identity search and handles disclosure gates', async ({ page }) => {
@@ -233,13 +287,11 @@ test.describe('public records funnel', () => {
   });
 
   test('keeps disclosure dialog content focusable and semantically identifiable', async ({ page }) => {
-    await page.goto('/', { waitUntil: 'domcontentloaded' });
-    await page.getByPlaceholder('Full Name').fill(SEARCH_NAME);
-    await page.locator('#people-search-btn').click();
+    await openLandingPage(page);
+    await submitSearch(page);
 
     // Native dialog state matters for screen-reader and focus-management behavior.
-    const searchDialog = page.locator('#people-search-dialog');
-    await expect(searchDialog).toBeVisible();
+    const searchDialog = await expectSearchDisclosure(page);
     await expect(searchDialog).toHaveJSProperty('open', true);
     await searchDialog.getByRole('link', { name: /continue/i }).focus();
     await expect(searchDialog.getByRole('link', { name: /continue/i })).toBeFocused();
@@ -262,7 +314,7 @@ test.describe('public records funnel', () => {
   test('requires service agreement acceptance before checkout', async ({ page }) => {
     await reachPackageSelection(page);
 
-    await page.locator('#singleReport').check();
+    await page.locator(`#${SINGLE_REPORT_PLAN}`).check();
     await page.getByRole('button', { name: /continue/i }).click();
 
     await expect(page).toHaveURL(/\/feature\/service-agreement\/plan3/);
@@ -283,15 +335,15 @@ test.describe('public records funnel', () => {
     await expectBasicPageAccessibility(page);
 
     await expect(page.locator('#oneYear')).toBeChecked();
-    await page.locator('#singleReport').check();
-    await expect(page.locator('#singleReport')).toBeChecked();
+    await page.locator(`#${SINGLE_REPORT_PLAN}`).check();
+    await expect(page.locator(`#${SINGLE_REPORT_PLAN}`)).toBeChecked();
     await expect(page.locator('body')).toContainText(/one public record report/i);
   });
 
   test('keeps checkout reachable and readable on a mobile viewport', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
 
-    await reachCheckout(page, 'singleReport');
+    await reachCheckout(page, SINGLE_REPORT_PLAN);
     await expectNoHorizontalOverflow(page);
     await expectBasicPageAccessibility(page);
     await expect(page.getByRole('button', { name: /confirm payment/i })).toBeVisible();
@@ -303,21 +355,14 @@ test.describe('public records funnel', () => {
     await expectBasicPageAccessibility(page);
 
     // Each package option should update the visible summary before the user commits.
-    const plans = [
-      { id: 'oneYear', summary: /360 public record reports/i },
-      { id: 'threeMonth', summary: /90 public record reports/i },
-      { id: 'singleReport', summary: /one public record report/i },
-      { id: 'fiveReports', summary: /10 public record reports/i }
-    ];
-
-    for (const plan of plans) {
+    for (const plan of PLANS) {
       await page.locator(`#${plan.id}`).check();
       await expect(page.locator(`#${plan.id}`)).toBeChecked();
       await expect(page.locator('body')).toContainText(plan.summary);
     }
 
     // Continue with the single-report plan so checkout assertions have a stable price.
-    await page.locator('#singleReport').check();
+    await page.locator(`#${SINGLE_REPORT_PLAN}`).check();
     await page.getByRole('button', { name: /continue/i }).click();
     await expect(page).toHaveURL(/\/feature\/service-agreement\/plan3/);
 
@@ -330,17 +375,10 @@ test.describe('public records funnel', () => {
   test('maps package selections to expected service-agreement plan routes', async ({ page }) => {
     await reachPackageSelection(page);
 
-    const plans = [
-      { id: 'oneYear', route: /\/feature\/service-agreement\/plan1/ },
-      { id: 'threeMonth', route: /\/feature\/service-agreement\/plan2/ },
-      { id: 'singleReport', route: /\/feature\/service-agreement\/plan3/ },
-      { id: 'fiveReports', route: /\/feature\/service-agreement\/plan4/ }
-    ];
-
-    for (const plan of plans) {
+    for (const plan of PLANS) {
       await page.locator(`#${plan.id}`).check();
       await page.getByRole('button', { name: /continue/i }).click();
-      await expect(page).toHaveURL(plan.route);
+      await expect(page).toHaveURL(plan.serviceAgreementRoute);
       await expect(page.getByText(/service agreement/i)).toBeVisible();
 
       await page.goBack();
@@ -349,16 +387,11 @@ test.describe('public records funnel', () => {
   });
 
   test('shows field-specific checkout errors for malformed payment details', async ({ page }) => {
-    await reachCheckout(page, 'singleReport');
+    await reachCheckout(page, SINGLE_REPORT_PLAN);
 
     // These values are intentionally malformed and still leave address/terms incomplete.
-    await page.locator('#firstName').fill('Ada');
-    await page.locator('#lastName').fill('Lovelace');
-    await page.locator('#email').fill('not-an-email');
-    await page.locator('#cc').fill('4111');
-    await page.locator('#cvv').fill('1');
-
-    await page.getByRole('button', { name: /confirm payment/i }).click();
+    await fillMalformedCheckoutDetails(page);
+    await submitCheckout(page);
 
     await expect(page.locator('body')).toContainText(/invalid credit card/i);
     await expect(page.locator('body')).toContainText(/invalid cvv/i);
@@ -375,25 +408,21 @@ test.describe('public records funnel', () => {
     const currentYear = String(now.getFullYear()).slice(-2);
     const expiredMonth = String(currentMonth - 1).padStart(2, '0');
 
-    await reachCheckout(page, 'singleReport');
+    await reachCheckout(page, SINGLE_REPORT_PLAN);
 
     // Past years are hidden, but past months in the current year remain selectable.
     await page.locator('#month').selectOption(expiredMonth);
     await page.locator('#year').selectOption(currentYear);
-    await page.locator('#firstName').fill('Ada');
-    await page.locator('#lastName').fill('Lovelace');
-    await page.locator('#email').fill('not-an-email');
-    await page.locator('#cc').fill('4111');
-    await page.locator('#cvv').fill('1');
+    await fillMalformedCheckoutDetails(page);
 
-    await page.getByRole('button', { name: /confirm payment/i }).click();
+    await submitCheckout(page);
 
     await expect(page.locator('body')).toContainText(/invalid year/i);
     await expect(page).toHaveURL(/\/feature\/checkout\/plan3/);
   });
 
   test('validates checkout fields without submitting a purchase', async ({ page }) => {
-    await reachCheckout(page, 'singleReport');
+    await reachCheckout(page, SINGLE_REPORT_PLAN);
     await expectBasicPageAccessibility(page);
 
     // This audits the reported card-spacing issue without creating a valid purchase.
@@ -408,7 +437,7 @@ test.describe('public records funnel', () => {
     expect(Math.min(...selectableYears)).toBeGreaterThanOrEqual(26);
 
     // Submit with required fields intentionally missing to verify blocking validation.
-    await page.getByRole('button', { name: /confirm payment/i }).click();
+    await submitCheckout(page);
 
     await expect(page.locator('body')).toContainText(/first name must include/i);
     await expect(page.locator('body')).toContainText(/last name must include/i);
