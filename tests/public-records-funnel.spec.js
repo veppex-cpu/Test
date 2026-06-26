@@ -1,7 +1,26 @@
+/**
+ * PublicRecordsData.us funnel coverage.
+ *
+ * This spec exercises the highest-risk public journey end to end:
+ * search -> disclosure gates -> age/notice consent -> package selection ->
+ * service agreement -> checkout validation.
+ *
+ * Included coverage:
+ * - keyboard and baseline accessibility smoke checks on key funnel pages
+ * - FCRA/disclosure dialog content and navigation
+ * - package tier selection and checkout summary consistency
+ * - checkout validation without entering a complete payment-ready form
+ * - documented product gaps such as expired-date and zip-code gray areas
+ *
+ * The tests intentionally avoid generated CSS classes and prefer visible text,
+ * roles, stable IDs, and URL assertions so they track user-facing behavior.
+ */
 const { test, expect } = require('@playwright/test');
 
 const SEARCH_NAME = 'John Smith';
 
+// Dependency-free accessibility smoke coverage. Broader structural findings
+// are documented in BUGS.md so known product issues do not mask funnel regressions.
 async function expectBasicPageAccessibility(page) {
   const issues = await page.evaluate(() => {
     const isVisible = (element) => {
@@ -15,6 +34,8 @@ async function expectBasicPageAccessibility(page) {
 
     const getTextById = (id) => document.getElementById(id)?.textContent?.trim() || '';
 
+    // Approximate the accessible-name rules for the controls this funnel exposes.
+    // This is not a replacement for axe, but it catches common unlabeled controls.
     const hasAccessibleName = (element) => {
       const tagName = element.tagName.toLowerCase();
       const type = element.getAttribute('type');
@@ -68,6 +89,7 @@ async function expectBasicPageAccessibility(page) {
   expect(issues.missingAltImages).toEqual([]);
 }
 
+// A cheap responsive sanity check for the main funnel pages.
 async function expectNoHorizontalOverflow(page) {
   const overflow = await page.evaluate(() => {
     const documentWidth = document.documentElement.scrollWidth;
@@ -81,6 +103,7 @@ async function expectFocusedElement(page, selector) {
   await expect(page.locator(selector)).toBeFocused();
 }
 
+// Models keyboard-only navigation without assuming exact tab order beyond a cap.
 async function tabUntilFocused(page, selector, maxTabs = 12) {
   for (let attempt = 0; attempt < maxTabs; attempt += 1) {
     if (await page.locator(selector).evaluate((element) => element === document.activeElement)) {
@@ -93,6 +116,7 @@ async function tabUntilFocused(page, selector, maxTabs = 12) {
   await expectFocusedElement(page, selector);
 }
 
+// Starts from the public landing page and verifies the first FCRA disclosure gate.
 async function startSearch(page) {
   await page.goto('/');
   await expect(page.getByPlaceholder('Full Name')).toBeVisible();
@@ -110,6 +134,7 @@ async function startSearch(page) {
   await expect(page).toHaveURL(/\/feature\/age-verification/);
 }
 
+// Accepts the age-verification gate and verifies the nested FCRA disclaimer.
 async function acceptAgeVerification(page) {
   await expect(page.getByText(/public records/i).first()).toBeVisible();
   await expect(page.locator('body')).toContainText(/terms of service/i);
@@ -124,12 +149,14 @@ async function acceptAgeVerification(page) {
   await expect(page).toHaveURL(/\/feature\/notice/);
 }
 
+// Completes the final notice page before the package matrix.
 async function acceptNotice(page) {
   await expect(page.getByText(/important notice/i)).toBeVisible();
   await page.getByRole('link', { name: /i agree/i }).click();
   await expect(page).toHaveURL(/\/feature\/package/);
 }
 
+// Shared setup for tests that need to begin at package selection.
 async function reachPackageSelection(page) {
   await startSearch(page);
   await acceptAgeVerification(page);
@@ -137,6 +164,7 @@ async function reachPackageSelection(page) {
   await expect(page.getByText(/choose your package/i)).toBeVisible();
 }
 
+// Shared setup for checkout tests. The helper stops before entering valid payment data.
 async function reachCheckout(page, plan = 'singleReport') {
   await reachPackageSelection(page);
   await page.locator(`#${plan}`).check();
@@ -155,6 +183,7 @@ test.describe('public records funnel', () => {
     await page.goto('/');
     await expectBasicPageAccessibility(page);
 
+    // Proves a keyboard-only user can reach the search field and submit search.
     await tabUntilFocused(page, 'input[placeholder="Full Name"]');
     await page.keyboard.type(SEARCH_NAME);
 
@@ -168,9 +197,11 @@ test.describe('public records funnel', () => {
   });
 
   test('starts a broad identity search and handles disclosure gates', async ({ page }) => {
+    // First pass verifies the initial disclosure and responsive layout.
     await startSearch(page);
     await expectNoHorizontalOverflow(page);
 
+    // Browser back should return to a usable search form, then the funnel can restart.
     await page.goBack();
     await expect(page.getByPlaceholder('Full Name')).toBeVisible();
 
@@ -188,6 +219,7 @@ test.describe('public records funnel', () => {
     await page.getByPlaceholder('Full Name').fill(SEARCH_NAME);
     await page.locator('#people-search-btn').click();
 
+    // Native dialog state matters for screen-reader and focus-management behavior.
     const searchDialog = page.locator('#people-search-dialog');
     await expect(searchDialog).toBeVisible();
     await expect(searchDialog).toHaveJSProperty('open', true);
@@ -198,6 +230,8 @@ test.describe('public records funnel', () => {
     await expect(page).toHaveURL(/\/feature\/age-verification/);
     await expectBasicPageAccessibility(page);
 
+    // The trigger's keyboard reachability is tracked in BUGS.md; this test continues
+    // by opening the dialog and verifying focusable content inside it.
     await page.locator('#disclaimer-dialog-btn').click();
 
     const disclaimerDialog = page.locator('#disclaimer-dialog');
@@ -211,6 +245,7 @@ test.describe('public records funnel', () => {
     await reachPackageSelection(page);
     await expectBasicPageAccessibility(page);
 
+    // Each package option should update the visible summary before the user commits.
     const plans = [
       { id: 'oneYear', summary: /360 public record reports/i },
       { id: 'threeMonth', summary: /90 public record reports/i },
@@ -224,6 +259,7 @@ test.describe('public records funnel', () => {
       await expect(page.locator('body')).toContainText(plan.summary);
     }
 
+    // Continue with the single-report plan so checkout assertions have a stable price.
     await page.locator('#singleReport').check();
     await page.getByRole('button', { name: /continue/i }).click();
     await expect(page).toHaveURL(/\/feature\/service-agreement\/plan3/);
@@ -238,15 +274,18 @@ test.describe('public records funnel', () => {
     await reachCheckout(page, 'singleReport');
     await expectBasicPageAccessibility(page);
 
+    // This audits the reported card-spacing issue without creating a valid purchase.
     await page.locator('#cc').fill('4111 1111 1111 1111');
     await page.locator('#cc').blur();
     await expect(page.locator('#cc')).toHaveValue('4111-1111-1111-1111');
 
+    // Past years are not selectable, so direct expired-card submission is not possible.
     const selectableYears = await page.locator('#year option').evaluateAll((options) =>
       options.map((option) => Number(option.value))
     );
     expect(Math.min(...selectableYears)).toBeGreaterThanOrEqual(26);
 
+    // Submit with required fields intentionally missing to verify blocking validation.
     await page.getByRole('button', { name: /confirm payment/i }).click();
 
     await expect(page.locator('body')).toContainText(/first name must include/i);
@@ -257,6 +296,7 @@ test.describe('public records funnel', () => {
       /billing address can not be blank/i
     );
 
+    // Reload behavior is documented because checkout forms often preserve state.
     await page.locator('#firstName').fill('Ada');
     await page.locator('#lastName').fill('Lovelace');
     await page.locator('#email').fill('ada@example.com');
