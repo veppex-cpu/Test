@@ -10,12 +10,17 @@ const nightlyExecutablePath = path.join(
 
 module.exports = defineConfig({
   testDir: './tests',
-  fullyParallel: true,
+  timeout: 90_000,
+  expect: {
+    timeout: 15_000
+  },
+  fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
+  workers: 1,
   reporter: 'html',
   use: {
+    baseURL: 'https://www.publicrecordsdata.us',
     trace: 'on-first-retry'
   },
   projects: [
