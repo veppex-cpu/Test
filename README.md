@@ -231,36 +231,41 @@ test hooks:
 ```mermaid
 flowchart TD
   Config[playwright.config.js] --> Project[Firefox Nightly project]
-  Project --> Suite[tests/public-records-funnel.spec.js]
+  Project --> SearchSpec[tests/public-records-search.spec.js]
+  Project --> PackageSpec[tests/public-records-package.spec.js]
+  Project --> CheckoutSpec[tests/public-records-checkout.spec.js]
 
-  Suite --> Helpers[Test flow helpers]
-  Helpers --> Start[startSearch]
-  Helpers --> Age[acceptAgeVerification]
-  Helpers --> Notice[acceptNotice]
-  Helpers --> Package[reachPackageSelection]
-  Helpers --> Checkout[reachCheckout]
+  SearchSpec --> Helpers[tests/helpers]
+  PackageSpec --> Helpers
+  CheckoutSpec --> Helpers
 
-  Suite --> Tests[User-facing tests]
-  Tests --> Search[Search and disclosure gates]
-  Tests --> Tiers[Package tier sync]
-  Tests --> Validation[Checkout validation]
-  Tests --> A11y[Accessibility smoke checks]
-  Tests --> Responsive[Mobile viewport smoke]
+  Helpers --> Funnel[funnel.js]
+  Helpers --> Accessibility[accessibility.js]
+  Helpers --> Checkout[checkout.js]
+  Helpers --> Plans[plans.js]
+
+  SearchSpec --> Search[Search and disclosure gates]
+  PackageSpec --> Tiers[Package tier sync]
+  CheckoutSpec --> Validation[Checkout validation]
+  SearchSpec --> A11y[Accessibility smoke checks]
+  PackageSpec --> Responsive[Mobile viewport smoke]
+  CheckoutSpec --> Responsive
 
   Config --> BaseURL[https://www.publicrecordsdata.us]
-  Tests --> Report[HTML report]
-  Tests --> Notes[BUGS.md audit notes]
+  SearchSpec --> Report[HTML report]
+  CheckoutSpec --> Notes[BUGS.md audit notes]
 ```
 
 The helper functions model the actual funnel order and keep repeated navigation
-logic out of individual assertions. This is intentionally a small, single-spec
-suite today; if the assessment grows, the next clean split would be:
+logic out of individual assertions. Specs are split by assignment area:
 
-- `tests/flows/` for reusable funnel navigation helpers
-- `tests/assertions/` for shared validation helpers like overflow checks
-- separate specs for search/disclosure, package selection, and checkout
-- optional API or fixture-level tests for cases that the production UI does not
-  expose, such as forced expired-card years
+- `tests/public-records-search.spec.js` for search, disclosure, keyboard, and
+  early-funnel checks
+- `tests/public-records-package.spec.js` for package tier behavior, plan route
+  mapping, and package-page mobile coverage
+- `tests/public-records-checkout.spec.js` for service-agreement and checkout
+  validation
+- `tests/helpers/` for shared accessibility, funnel, checkout, and plan helpers
 
 ## Accessibility and Browser Coverage
 
