@@ -141,6 +141,7 @@ async function tabUntilFocused(page, selector, maxTabs = 12) {
   await expectFocusedElement(page, selector);
 }
 
+// Opens the public landing page and waits until the search form is ready to use.
 async function openLandingPage(page) {
   await page.goto('/', { waitUntil: 'domcontentloaded' });
   await expect(page.getByPlaceholder('Full Name')).toBeVisible();
@@ -148,11 +149,13 @@ async function openLandingPage(page) {
   await expect(page.locator('#people-search-btn')).toBeEnabled();
 }
 
+// Submits the people-search form with a broad default identity query.
 async function submitSearch(page, name = SEARCH_NAME) {
   await page.getByPlaceholder('Full Name').fill(name);
   await page.locator('#people-search-btn').click();
 }
 
+// Verifies the initial search disclosure dialog and returns it for follow-up actions.
 async function expectSearchDisclosure(page) {
   const disclosureDialog = page.locator('#people-search-dialog');
   await expect(disclosureDialog).toBeVisible();
@@ -217,10 +220,12 @@ async function reachCheckout(page, plan = 'singleReport') {
   await expect(page.getByRole('button', { name: /confirm payment/i })).toBeVisible();
 }
 
+// Clicks the checkout submit button while the form remains intentionally invalid.
 async function submitCheckout(page) {
   await page.getByRole('button', { name: /confirm payment/i }).click();
 }
 
+// Fills checkout with safe malformed defaults; callers can override specific fields.
 async function fillMalformedCheckoutDetails(page, overrides = {}) {
   const values = {
     firstName: 'Ada',
