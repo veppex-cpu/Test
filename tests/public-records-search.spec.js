@@ -1,3 +1,10 @@
+/**
+ * Search and disclosure funnel coverage.
+ *
+ * Focuses on the public entry point: search input boundaries, keyboard-driven
+ * search initiation, the first FCRA disclosure, early legal gates, back
+ * navigation, and basic accessibility/layout checks before package selection.
+ */
 const { test, expect } = require('@playwright/test');
 const {
   SEARCH_NAME,

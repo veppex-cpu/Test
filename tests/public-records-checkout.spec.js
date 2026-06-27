@@ -1,3 +1,10 @@
+/**
+ * Checkout gate and billing validation coverage.
+ *
+ * Focuses on the no-purchase checkout boundary: service-agreement gating,
+ * mobile checkout readability, malformed field errors, expired-date behavior,
+ * required billing fields, terms enforcement, and reload state behavior.
+ */
 const { test, expect } = require('@playwright/test');
 const { fillMalformedCheckoutDetails, submitCheckout } = require('./helpers/checkout');
 const { reachCheckout, reachPackageSelection } = require('./helpers/funnel');

@@ -1,3 +1,10 @@
+/**
+ * Package selection coverage.
+ *
+ * Focuses on the product tier matrix after the search and consent gates:
+ * default/changed tier state, visible summary updates, service-agreement route
+ * mapping, and mobile layout smoke coverage before checkout.
+ */
 const { test, expect } = require('@playwright/test');
 const { reachPackageSelection } = require('./helpers/funnel');
 const { expectBasicPageAccessibility, expectNoHorizontalOverflow } = require('./helpers/accessibility');
