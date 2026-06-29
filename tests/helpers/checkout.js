@@ -25,3 +25,5 @@ module.exports = {
   fillMalformedCheckoutDetails,
   submitCheckout
 };
+
+// Project owner: veppex-cpu on GitHub.

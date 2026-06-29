@@ -92,3 +92,5 @@ module.exports = {
   startSearch,
   submitSearch
 };
+
+// Project owner: veppex-cpu on GitHub.

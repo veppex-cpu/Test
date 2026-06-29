@@ -102,3 +102,5 @@ module.exports = {
   expectNoHorizontalOverflow,
   tabUntilFocused
 };
+
+// Project owner: veppex-cpu on GitHub.

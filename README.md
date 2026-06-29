@@ -303,3 +303,22 @@ The assessment asks for zip-code validation. The checkout page exposes a hidden 
 The assessment also asks for expired-date validation. The year dropdown starts at the current year (`26`) and does not expose past years, but prior months in the current year remain selectable. The suite now verifies both sides of that boundary: past years are unavailable, and a current-year past month returns the checkout expiration error.
 
 The current public funnel did not expose a separate results matrix with sorting and pagination before checkout. I covered the observed package-selection matrix and noted the missing sorting/pagination surface in `BUGS.md`.
+
+## Additional Test Opportunities
+
+High-value tests to add next:
+
+- Route-guard regressions once direct access to gated package, agreement, and
+  checkout URLs is blocked.
+- Address autocomplete failure and zip/postal validation once a visible field or
+  stable test hook exists.
+- Browser-matrix CI for Chromium and WebKit in addition to the current Firefox
+  Nightly project.
+- API or seeded-environment checks for sorting, pagination, and zero-result
+  states when a results route is available.
+- Accessibility depth with axe, especially dialog focus traps, landmarks,
+  document language, and color contrast.
+
+---
+
+Project owner: veppex-cpu on GitHub.

@@ -80,3 +80,19 @@ Repeated non-fatal warnings appeared during exploration:
 - A Microsoft Clarity UET script failed to load on the service-agreement page.
 
 These did not block the tested funnel, but they create noise and should be reviewed separately from core checkout validation.
+
+## Additional Test Ideas
+
+- Add a route-protection regression after `/feature/package`,
+  `/feature/service-agreement/plan3`, and `/feature/checkout/plan3` require the
+  expected prior legal gates.
+- Add results sorting and pagination tests once the public or test environment
+  exposes a stable results matrix.
+- Add address-autocomplete and zip/postal-code validation coverage once checkout
+  provides a visible field or deterministic test hook.
+- Add a cross-browser CI matrix because dialog, select, autofill, and payment
+  field behavior can differ across Chromium, Firefox, and WebKit.
+
+---
+
+Project owner: veppex-cpu on GitHub.

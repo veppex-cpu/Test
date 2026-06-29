@@ -27,3 +27,5 @@ module.exports = {
   PLANS,
   SINGLE_REPORT_PLAN
 };
+
+// Project owner: veppex-cpu on GitHub.

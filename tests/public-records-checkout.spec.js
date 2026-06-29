@@ -110,3 +110,5 @@ test.describe('public records checkout validation', () => {
     await expect(page.locator('#cc')).toHaveValue('');
   });
 });
+
+// Project owner: veppex-cpu on GitHub.

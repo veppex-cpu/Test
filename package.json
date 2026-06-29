@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "description": "JavaScript Playwright test project",
+  "author": "veppex-cpu",
   "scripts": {
     "test": "playwright test",
     "test:headed": "playwright test --headed",
